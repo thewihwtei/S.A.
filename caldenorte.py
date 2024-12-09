@@ -19,8 +19,8 @@ class SistemaLogin:
         try:
             return mysql.connector.connect(
                 host='localhost',
-                user='root',
-                password='GnRsm.2022',
+                user='usuario',
+                password='senha',
                 database='caldenorte_db'
             )
         except Error as e:
