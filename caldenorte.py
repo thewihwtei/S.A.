@@ -19,8 +19,8 @@ class SistemaLogin:
         try:
             return mysql.connector.connect(
                 host='localhost',
-                user='usuario',
-                password='senha',
+                user='root',
+                password='GnRsm.2022',
                 database='caldenorte_db'
             )
         except Error as e:
@@ -156,7 +156,7 @@ class SistemaLogin:
 
         label_logo = tk.Label(frame_topo, image=logo, bg="white")
         label_logo.image = logo 
-        label_logo.pack(side="left", padx=15, pady=10)
+        label_logo.pack(side="left", padx=25, pady=10)
 
         titulo = tk.Label(
             frame_topo,
@@ -219,7 +219,7 @@ class SistemaLogin:
         self.janela_menu.destroy() 
         self.__init__()
 
-    def visualizar_tabela(self, tabela): 
+    def visualizar_tabela(self, tabela):
         for widget in self.frame_principal.winfo_children():
             widget.destroy()
 
@@ -228,10 +228,15 @@ class SistemaLogin:
             return
 
         cursor = conexao.cursor()
-        cursor.execute(f"SELECT * FROM {tabela}")
-        dados = cursor.fetchall()
-        colunas = [desc[0] for desc in cursor.description]
-        conexao.close()
+        try:
+            cursor.execute(f"SELECT * FROM {tabela}")
+            dados = cursor.fetchall()
+            colunas = [desc[0] for desc in cursor.description]
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao carregar dados da tabela: {e}")
+            return
+        finally:
+            conexao.close()
 
         style = ttk.Style()
         style.configure(
@@ -243,6 +248,25 @@ class SistemaLogin:
             font=("Arial", 12)
         )
         style.configure("Custom.Treeview.Heading", font=("Arial", 14, "bold"))
+
+        frame_pesquisa = tk.Frame(self.frame_principal, bg="white")
+        frame_pesquisa.pack(fill="x", padx=10, pady=5)
+
+        tk.Label(frame_pesquisa, text="Digite para pesquisar:", font=("Arial", 12, "bold"), bg="white").pack(side="left", padx=5)
+
+        self.entry_pesquisa = tk.Entry(frame_pesquisa, font=("Arial", 12))
+        self.entry_pesquisa.pack(side="left", padx=5)
+
+        botao_pesquisa = tk.Button(
+            frame_pesquisa,
+            text="Pesquisar",
+            bg="#151e70",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            relief="raised",
+            command=lambda: self.pesquisar_dados(tabela, colunas)
+        )
+        botao_pesquisa.pack(side="left", padx=5)
 
         scrollbar_y = ttk.Scrollbar(self.frame_principal, orient="vertical")
         scrollbar_x = ttk.Scrollbar(self.frame_principal, orient="horizontal")
@@ -258,10 +282,7 @@ class SistemaLogin:
 
         for coluna in colunas:
             treeview.heading(coluna, text=coluna)
-            treeview.column(coluna, width=150)
-
-        for linha in dados:
-            treeview.insert("", "end", values=linha)
+            treeview.column(coluna, width=150, anchor="center")
 
         scrollbar_y.config(command=treeview.yview)
         scrollbar_x.config(command=treeview.xview)
@@ -270,7 +291,12 @@ class SistemaLogin:
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
 
-        frame_botoes = tk.Frame(self.frame_principal)
+        self.treeview = treeview
+
+        for linha in dados:
+            treeview.insert("", "end", values=linha)
+
+        frame_botoes = tk.Frame(self.frame_principal, bg="white")
         frame_botoes.pack(fill="x", padx=10, pady=10)
 
         botao_adicionar = tk.Button(
@@ -300,7 +326,7 @@ class SistemaLogin:
         botao_excluir = tk.Button(
             frame_botoes,
             text="Excluir",
-            bg="#151e70",
+            bg="#FF0000",
             fg="white",
             font=("Arial", 12, "bold"),
             relief="raised",
@@ -309,11 +335,43 @@ class SistemaLogin:
         )
         botao_excluir.pack(side="left", padx=5)
 
+
+    def pesquisar_dados(self, tabela, colunas):
+        for widget in self.treeview.get_children():
+            self.treeview.delete(widget)
+
+        filtro = self.entry_pesquisa.get()
+
+        conexao = self.conectar_banco()
+        if not conexao:
+            return
+
+        cursor = conexao.cursor()
+        try:
+            query = f"SELECT * FROM {tabela} WHERE {' OR '.join([f'{coluna} LIKE %s' for coluna in colunas])}"
+            valores = [f"%{filtro}%" for _ in colunas]
+            cursor.execute(query, valores)
+            dados = cursor.fetchall()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao buscar dados: {e}")
+            return
+        finally:
+            conexao.close()
+
+        for linha in dados:
+            self.treeview.insert("", "end", values=linha)
+
     def adicionar_registro(self, tabela, colunas, treeview):
         for widget in self.frame_principal.winfo_children():
             widget.destroy()
 
-        tk.Label(self.frame_principal, text=f"Adicionar Registro em {tabela.capitalize()}",  bg="white", fg="#151e70", font=("Arial", 14, "bold")).pack(pady=10)
+        tk.Label(
+            self.frame_principal,
+            text=f"Adicionar Registro em {tabela.capitalize()}",
+            bg="white",
+            fg="#151e70",
+            font=("Arial", 14, "bold")
+        ).pack(pady=10)
 
         entradas = {}
         for coluna in colunas:
@@ -335,15 +393,16 @@ class SistemaLogin:
                     valores
                 )
                 conexao.commit()
+
+                messagebox.showinfo("Sucesso", "Registro adicionado com sucesso!")
                 conexao.close()
 
-                treeview.insert("", "end", values=valores)
-                messagebox.showinfo("Sucesso", "Registro adicionado com sucesso!")
-            
-                for entrada in entradas.values():
-                    entrada.delete(0, tk.END)
+                self.visualizar_tabela(tabela)
+
             except Exception as e:
                 messagebox.showerror("Erro", f"Não foi possível adicionar o registro.\n{e}")
+            finally:
+                conexao.close()
 
         tk.Button(self.frame_principal, text="Salvar", command=salvar, bg="#151e70", fg="white").pack(pady=20)
 
@@ -354,11 +413,17 @@ class SistemaLogin:
             return
 
         valores_selecionados = treeview.item(item_selecionado, "values")
-    
+
         for widget in self.frame_principal.winfo_children():
             widget.destroy()
-    
-        tk.Label(self.frame_principal, text=f"Alterar Registro em {tabela.capitalize()}", bg="white", fg="#151e70", font=("Arial", 14, "bold")).pack(pady=10)
+
+        tk.Label(
+            self.frame_principal,
+            text=f"Alterar Registro em {tabela.capitalize()}",
+            bg="white",
+            fg="#151e70",
+            font=("Arial", 14, "bold")
+        ).pack(pady=10)
 
         entradas = {}
         for i, coluna in enumerate(colunas):
@@ -373,17 +438,20 @@ class SistemaLogin:
             conexao = self.conectar_banco()
             if not conexao:
                 return
-            cursor = conexao.cursor()
-            sets = ", ".join([f"{coluna} = %s" for coluna in colunas])
             try:
+                cursor = conexao.cursor()
+                sets = ", ".join([f"{coluna} = %s" for coluna in colunas])
                 cursor.execute(
                     f"UPDATE {tabela} SET {sets} WHERE {colunas[0]} = %s",
                     novos_valores + [valores_selecionados[0]]
                 )
                 conexao.commit()
+
                 messagebox.showinfo("Sucesso", "Registro alterado com sucesso!")
-                treeview.delete(item_selecionado)
-                treeview.insert("", "end", values=novos_valores)
+                conexao.close()
+
+                self.visualizar_tabela(tabela)
+
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao atualizar registro: {e}")
             finally:
@@ -421,7 +489,7 @@ class SistemaLogin:
     def criar_menu_cliente(self, id_cliente):
         self.janela_cliente = tk.Tk()
         self.janela_cliente.title("Menu Cliente")
-        self.janela_cliente.geometry("600x400")
+        self.janela_cliente.geometry("800x600")
 
         frame_topo_cliente = tk.Frame(self.janela_cliente, bg="white", height=100)
         frame_topo_cliente.pack(side="top", fill="x")
@@ -433,7 +501,7 @@ class SistemaLogin:
 
             label_logo = tk.Label(frame_topo_cliente, image=logo, bg="white")
             label_logo.image = logo  
-            label_logo.pack(side="left", padx=15, pady=10)
+            label_logo.pack(side="left", padx=25, pady=10)  
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao carregar o logo: {e}")
 
@@ -515,6 +583,25 @@ class SistemaLogin:
         )
         style.configure("Custom.Treeview.Heading", font=("Arial", 14, "bold"))
 
+        frame_pesquisa = tk.Frame(self.frame_direita, bg="white")
+        frame_pesquisa.pack(fill="x", padx=10, pady=5)
+
+        tk.Label(frame_pesquisa, text="Digite para pesquisar:", font=("Arial", 12, "bold"), bg="white").pack(side="left", padx=5)
+
+        self.entry_pesquisa_produtos = tk.Entry(frame_pesquisa, font=("Arial", 12))
+        self.entry_pesquisa_produtos.pack(side="left", padx=5)
+
+        botao_pesquisa = tk.Button(
+            frame_pesquisa,
+            text="Pesquisar",
+            bg="#151e70",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            relief="raised",
+            command=lambda: self.pesquisar_produtos()
+        )
+        botao_pesquisa.pack(side="left", padx=5)
+
         scrollbar_y = ttk.Scrollbar(self.frame_direita, orient="vertical")
         scrollbar_x = ttk.Scrollbar(self.frame_direita, orient="horizontal")
 
@@ -526,7 +613,7 @@ class SistemaLogin:
             yscrollcommand=scrollbar_y.set,
             xscrollcommand=scrollbar_x.set
         )
-    
+        
         treeview.heading("Produto", text="Produto")
         treeview.heading("Preço", text="Preço")
         treeview.column("Produto", width=250)
@@ -550,6 +637,31 @@ class SistemaLogin:
         scrollbar_y.pack(side="right", fill="y")
         scrollbar_x.pack(side="bottom", fill="x")
 
+        self.treeview_produtos = treeview
+
+
+    def pesquisar_produtos(self):
+        for widget in self.treeview_produtos.get_children():
+            self.treeview_produtos.delete(widget)
+
+        filtro = self.entry_pesquisa_produtos.get()
+
+        conexao = self.conectar_banco()
+        if not conexao:
+            return
+
+        cursor = conexao.cursor()
+        try:
+            query = "SELECT nome, valor FROM produtos WHERE nome LIKE %s"
+            cursor.execute(query, (f"%{filtro}%",))
+            produtos = cursor.fetchall()
+
+            for produto in produtos:
+                self.treeview_produtos.insert("", "end", values=produto)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao buscar produtos: {e}")
+        finally:
+            conexao.close()
 
     def abrir_tela_alterar_info(self, id_cliente):
         for widget in self.frame_direita.winfo_children():
