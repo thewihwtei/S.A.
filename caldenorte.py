@@ -19,8 +19,8 @@ class SistemaLogin:
         try:
             return mysql.connector.connect(
                 host='localhost',
-                user='usuario',
-                password='senha',
+                user='root',
+                password='root',
                 database='caldenorte_db'
             )
         except Error as e:
@@ -374,10 +374,20 @@ class SistemaLogin:
         ).pack(pady=10)
 
         entradas = {}
-        for coluna in colunas:
-            tk.Label(self.frame_principal, text=coluna).pack(pady=5)
-            entrada = tk.Entry(self.frame_principal)
-            entrada.pack(pady=5)
+        frame_campos = tk.Frame(self.frame_principal, bg="white")
+        frame_campos.pack(pady=10)
+
+        for linha, coluna in enumerate(colunas):
+            tk.Label(
+                frame_campos,
+                text=coluna,
+                font=("Arial", 12),
+                bg="white",
+                fg="#151e70"
+            ).grid(row=linha, column=0, padx=5, pady=5, sticky="w")
+
+            entrada = tk.Entry(frame_campos, font=("Arial", 12))
+            entrada.grid(row=linha, column=1, padx=5, pady=5, sticky="e")  
             entradas[coluna] = entrada
 
         def salvar():
@@ -393,18 +403,24 @@ class SistemaLogin:
                     valores
                 )
                 conexao.commit()
-
                 messagebox.showinfo("Sucesso", "Registro adicionado com sucesso!")
                 conexao.close()
 
                 self.visualizar_tabela(tabela)
-
             except Exception as e:
-                messagebox.showerror("Erro", f"Não foi possível adicionar o registro.\n{e}")
+                messagebox.showerror("Erro", f"Erro ao adicionar registro: {e}")
             finally:
-                conexao.close()
+                if conexao:
+                    conexao.close()
 
-        tk.Button(self.frame_principal, text="Salvar", command=salvar, bg="#151e70", fg="white").pack(pady=20)
+        tk.Button(
+            self.frame_principal,
+            text="Salvar",
+            bg="#151e70",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            command=salvar
+        ).pack(pady=20)
 
     def alterar_registro(self, tabela, colunas, treeview):
         item_selecionado = treeview.selection()
@@ -426,10 +442,21 @@ class SistemaLogin:
         ).pack(pady=10)
 
         entradas = {}
+        frame_campos = tk.Frame(self.frame_principal, bg="white")  
+        frame_campos.pack(pady=10)
+
         for i, coluna in enumerate(colunas):
-            tk.Label(self.frame_principal, text=coluna).pack(pady=5)
-            entrada = tk.Entry(self.frame_principal)
-            entrada.pack(pady=5)
+            tk.Label(
+                frame_campos,
+                text=coluna,
+                font=("Arial", 12),
+                bg="white",
+                fg="#151e70"
+            ).grid(row=i, column=0, padx=5, pady=5, sticky="w") 
+
+            entrada = tk.Entry(frame_campos, font=("Arial", 12))
+            entrada.grid(row=i, column=1, padx=5, pady=5, sticky="e")  
+
             entrada.insert(0, valores_selecionados[i])
             entradas[coluna] = entrada
 
@@ -455,9 +482,17 @@ class SistemaLogin:
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro ao atualizar registro: {e}")
             finally:
-                conexao.close()
+                if conexao:
+                    conexao.close()
 
-        tk.Button(self.frame_principal, text="Salvar", command=salvar, bg="#151e70", fg="white").pack(pady=20)
+        tk.Button(
+            self.frame_principal,
+            text="Salvar",
+            bg="#151e70",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            command=salvar
+        ).pack(pady=20)
 
     def excluir_registro(self, tabela, colunas, treeview):
         item_selecionado = treeview.selection()
